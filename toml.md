@@ -1,23 +1,20 @@
 ![TOML Logo](logos/toml-200.png)
 
-TOML
-====
+# TOML
 
 Tom's Obvious, Minimal Language.
 
 By Tom Preston-Werner, Pradyun Gedam, et al.
 
-Objectives
-----------
+## Objectives
 
 TOML aims to be a minimal configuration file format that's easy to read due to
 obvious semantics. TOML is designed to map unambiguously to a hash table. TOML
 should be easy to parse into data structures in a wide variety of languages.
 
-Table of contents
------------------
+## Table of contents
 
-- [Spec](#user-content-spec)
+- [Preliminaries](#user-content-preliminaries)
 - [Comment](#user-content-comment)
 - [Key/Value Pair](#user-content-keyvalue-pair)
 - [Keys](#user-content-keys)
@@ -37,16 +34,19 @@ Table of contents
 - [MIME Type](#user-content-mime-type)
 - [ABNF Grammar](#user-content-abnf-grammar)
 
-Spec
-----
+## Preliminaries
 
-* TOML is case-sensitive.
-* A TOML file must be a valid UTF-8 encoded Unicode document.
-* Whitespace means tab (0x09) or space (0x20).
-* Newline means LF (0x0A) or CRLF (0x0D 0x0A).
+- TOML is case-sensitive.
+- Whitespace means tab (U+0009) or space (U+0020).
+- Newline means LF (U+000A) or CRLF (U+000D U+000A).
+- A TOML file must be a valid UTF-8 encoded Unicode document.
 
-Comment
--------
+  Specifically this means that a file _as a whole_ must form a
+  [well-formed code-unit sequence](https://unicode.org/glossary/#well_formed_code_unit_sequence).
+  Otherwise, it must be rejected (preferably) or have ill-formed byte sequences
+  replaced with U+FFFD, as per the Unicode specification.
+
+## Comment
 
 A hash symbol marks the rest of the line as a comment, except when inside a
 string.
@@ -57,11 +57,11 @@ key = "value"  # This is a comment at the end of a line
 another = "# This is not a comment"
 ```
 
-Control characters other than tab (U+0000 to U+0008, U+000A to U+001F, U+007F)
-are not permitted in comments.
+Comments may contain any Unicode code points except the following control codes
+that could cause problems during editing or processing: U+0000, and U+000A to
+U+000D.
 
-Key/Value Pair
---------------
+## Key/Value Pair
 
 The primary building block of a TOML document is the key/value pair.
 
@@ -92,39 +92,48 @@ Unspecified values are invalid.
 key = # INVALID
 ```
 
-There must be a newline (or EOF) after a key/value pair. (See [Inline
-Table](#user-content-inline-table) for exceptions.)
+There must be a newline (or EOF) after a key/value pair. (See
+[Inline Table](#user-content-inline-table) for exceptions.)
 
 ```
 first = "Tom" last = "Preston-Werner" # INVALID
 ```
 
-Keys
-----
+## Keys
 
 A key may be either bare, quoted, or dotted.
 
-**Bare keys** may only contain ASCII letters, ASCII digits, underscores, and
-dashes (`A-Za-z0-9_-`). Note that bare keys are allowed to be composed of only
-ASCII digits, e.g. `1234`, but are always interpreted as strings.
+**Bare keys** may contain any letter-like or number-like Unicode character from
+any Unicode script, as well as ASCII digits, dashes and underscores.
+Punctuation, spaces, arrows, box drawing and private use characters are not
+allowed. Note that bare keys are allowed to be composed of only ASCII digits,
+e.g. 1234, but are always interpreted as strings.
+
+&#x2139;&#xfe0f; The exact ranges of allowed code points can be found in the
+[ABNF grammar file][abnf].
 
 ```toml
 key = "value"
 bare_key = "value"
 bare-key = "value"
 1234 = "value"
+Fuß = "value"
+😂 = "value"
+汉语大字典 = "value"
+辭源 = "value"
+பெண்டிரேம் = "value"
 ```
 
 **Quoted keys** follow the exact same rules as either basic strings or literal
-strings and allow you to use a much broader set of key names. Best practice is
-to use bare keys except when absolutely necessary.
+strings and allow you to use any Unicode character in a key name, including
+spaces. Best practice is to use bare keys except when absolutely necessary.
 
 ```toml
 "127.0.0.1" = "value"
 "character encoding" = "value"
-"ʎǝʞ" = "value"
-'key2' = "value"
 'quoted "value"' = "value"
+"╠═╣" = "value"
+"⋰∫∬∭⋱" = "value"
 ```
 
 A bare key must be non-empty, but an empty quoted key is allowed (though
@@ -145,6 +154,7 @@ name = "Orange"
 physical.color = "orange"
 physical.shape = "round"
 site."google.com" = true
+பெண்.டிரேம் = "we are women"
 ```
 
 In JSON land, that would give you the following structure:
@@ -158,6 +168,9 @@ In JSON land, that would give you the following structure:
   },
   "site": {
     "google.com": true
+  },
+  "பெண்": {
+    "டிரேம்": "we are women"
   }
 }
 ```
@@ -169,8 +182,8 @@ Whitespace around dot-separated parts is ignored. However, best practice is to
 not use any extraneous whitespace.
 
 ```toml
-fruit.name = "banana"     # this is best practice
-fruit. color = "yellow"    # same as fruit.color
+fruit.name = "banana"       # this is best practice
+fruit. color = "yellow"     # same as fruit.color
 fruit . flavor = "banana"   # same as fruit.flavor
 ```
 
@@ -192,10 +205,10 @@ spelling = "favorite"
 "spelling" = "favourite"
 ```
 
-As long as a key hasn't been directly defined, you may still write to it and
-to names within it.
+As long as a key hasn't been directly defined, you may still write to it and to
+names within it.
 
-```
+```toml
 # This makes the key "fruit" into a table.
 fruit.apple.smooth = true
 
@@ -255,11 +268,10 @@ The above TOML maps to the following JSON.
 { "3": { "14159": "pi" } }
 ```
 
-String
-------
+## String
 
 There are four ways to express strings: basic, multi-line basic, literal, and
-multi-line literal. All strings must contain only valid UTF-8 characters.
+multi-line literal. All strings must contain only Unicode characters.
 
 **Basic strings** are surrounded by quotation marks (`"`). Any Unicode character
 may be used except those that must be escaped: quotation mark, backslash, and
@@ -267,7 +279,7 @@ the control characters other than tab (U+0000 to U+0008, U+000A to U+001F,
 U+007F).
 
 ```toml
-str = "I'm a string. \"You can quote me\". Name\tJos\u00E9\nLocation\tSF."
+str = "I'm a string. \"You can quote me\". Name\tJos\xE9\nLocation\tSF."
 ```
 
 For convenience, some popular characters have a compact escape sequence.
@@ -278,15 +290,23 @@ For convenience, some popular characters have a compact escape sequence.
 \n         - linefeed        (U+000A)
 \f         - form feed       (U+000C)
 \r         - carriage return (U+000D)
+\e         - escape          (U+001B)
 \"         - quote           (U+0022)
 \\         - backslash       (U+005C)
-\uXXXX     - unicode         (U+XXXX)
-\UXXXXXXXX - unicode         (U+XXXXXXXX)
+\xHH       - unicode         (U+00HH)
+\uHHHH     - unicode         (U+HHHH)
+\UHHHHHHHH - unicode         (U+HHHHHHHH)
 ```
 
-Any Unicode character may be escaped with the `\uXXXX` or `\UXXXXXXXX` forms.
-The escape codes must be valid Unicode [scalar
-values](https://unicode.org/glossary/#unicode_scalar_value).
+Any Unicode character may be escaped with the `\xHH`, `\uHHHH`, or `\UHHHHHHHH`
+forms. The escape codes must be Unicode
+[scalar values](https://unicode.org/glossary/#unicode_scalar_value).
+
+Keep in mind that all TOML strings are sequences of Unicode characters, _not_
+byte sequences. For binary data, avoid using these escape codes. Instead,
+external binary-to-text encoding strategies, like hexadecimal sequences or
+[Base64](https://www.base64decode.org/), are recommended for converting between
+bytes and strings.
 
 All other escape sequences not listed above are reserved; if they are used, TOML
 should produce an error.
@@ -342,7 +362,8 @@ str3 = """\
 
 Any Unicode character may be used except those that must be escaped: backslash
 and the control characters other than tab, line feed, and carriage return
-(U+0000 to U+0008, U+000B, U+000C, U+000E to U+001F, U+007F).
+(U+0000 to U+0008, U+000B, U+000C, U+000E to U+001F, U+007F). Carriage returns
+(U+000D) are only allowed as part of a newline sequence.
 
 You can write a quotation mark, or two adjacent quotation marks, anywhere inside
 a multi-line basic string. They can also be written just inside the delimiters.
@@ -378,14 +399,17 @@ version of literal strings that solves this problem.
 
 **Multi-line literal strings** are surrounded by three single quotes on each
 side and allow newlines. Like literal strings, there is no escaping whatsoever.
-A newline immediately following the opening delimiter will be trimmed. All other
-content between the delimiters is interpreted as-is without modification.
+A newline immediately following the opening delimiter will be trimmed. TOML
+parsers must normalize newlines in the same manner as multi-line basic strings.
+
+All other content between the delimiters is interpreted as-is without
+modification.
 
 ```toml
 regex2 = '''I [dw]on't need \d{2} apples'''
 lines  = '''
 The first newline is
-trimmed in raw strings.
+trimmed in literal strings.
    All other whitespace
    is preserved.
 '''
@@ -404,12 +428,9 @@ apos15 = "Here are fifteen apostrophes: '''''''''''''''"
 str = ''''That,' she said, 'is still pointless.''''
 ```
 
-Control characters other than tab are not permitted in a literal string. Thus,
-for binary data, it is recommended that you use Base64 or another suitable ASCII
-or UTF-8 encoding. The handling of that encoding will be application-specific.
+Control characters other than tab are not permitted in a literal string.
 
-Integer
--------
+## Integer
 
 Integers are whole numbers. Positive numbers may be prefixed with a plus sign.
 Negative numbers are prefixed with a minus sign.
@@ -458,8 +479,7 @@ Arbitrary 64-bit signed integers (from −2^63 to 2^63−1) should be accepted a
 handled losslessly. If an integer cannot be represented losslessly, an error
 must be thrown.
 
-Float
------
+## Float
 
 Floats should be implemented as IEEE 754 binary64 values.
 
@@ -522,8 +542,7 @@ sf5 = +nan # same as `nan`
 sf6 = -nan # valid, actual encoding is implementation-specific
 ```
 
-Boolean
--------
+## Boolean
 
 Booleans are just the tokens you're used to. Always lowercase.
 
@@ -532,11 +551,10 @@ bool1 = true
 bool2 = false
 ```
 
-Offset Date-Time
-----------------
+## Offset Date-Time
 
-To unambiguously represent a specific instant in time, you may use an [RFC
-3339](https://tools.ietf.org/html/rfc3339) formatted date-time with offset.
+To unambiguously represent a specific instant in time, you may use an
+[RFC 3339](https://tools.ietf.org/html/rfc3339) formatted date-time with offset.
 
 ```toml
 odt1 = 1979-05-27T07:32:00Z
@@ -551,13 +569,20 @@ time with a space character (as permitted by RFC 3339 section 5.6).
 odt4 = 1979-05-27 07:32:00Z
 ```
 
+One exception to RFC 3339 is permitted: seconds may be omitted, in which case
+`:00` will be assumed. The offset immediately follows the minutes.
+
+```toml
+odt5 = 1979-05-27 07:32Z
+odt6 = 1979-05-27 07:32-07:00
+```
+
 Millisecond precision is required. Further precision of fractional seconds is
 implementation-specific. If the value contains greater precision than the
 implementation can support, the additional precision must be truncated, not
 rounded.
 
-Local Date-Time
----------------
+## Local Date-Time
 
 If you omit the offset from an [RFC 3339](https://tools.ietf.org/html/rfc3339)
 formatted date-time, it will represent the given date-time without any relation
@@ -570,13 +595,18 @@ ldt1 = 1979-05-27T07:32:00
 ldt2 = 1979-05-27T00:32:00.999999
 ```
 
+Seconds may be omitted, in which case `:00` will be assumed.
+
+```toml
+ldt3 = 1979-05-27T07:32
+```
+
 Millisecond precision is required. Further precision of fractional seconds is
 implementation-specific. If the value contains greater precision than the
 implementation can support, the additional precision must be truncated, not
 rounded.
 
-Local Date
-----------
+## Local Date
 
 If you include only the date portion of an
 [RFC 3339](https://tools.ietf.org/html/rfc3339) formatted date-time, it will
@@ -586,11 +616,10 @@ represent that entire day without any relation to an offset or timezone.
 ld1 = 1979-05-27
 ```
 
-Local Time
-----------
+## Local Time
 
-If you include only the time portion of an [RFC
-3339](https://tools.ietf.org/html/rfc3339) formatted date-time, it will
+If you include only the time portion of an
+[RFC 3339](https://tools.ietf.org/html/rfc3339) formatted date-time, it will
 represent that time of day without any relation to a specific day or any offset
 or timezone.
 
@@ -599,13 +628,18 @@ lt1 = 07:32:00
 lt2 = 00:32:00.999999
 ```
 
+Seconds may be omitted, in which case `:00` will be assumed.
+
+```toml
+lt3 = 07:32
+```
+
 Millisecond precision is required. Further precision of fractional seconds is
 implementation-specific. If the value contains greater precision than the
 implementation can support, the additional precision must be truncated, not
 rounded.
 
-Array
------
+## Array
 
 Arrays are square brackets with values inside. Whitespace is ignored. Elements
 are separated by commas. Arrays can contain values of the same data types as
@@ -642,8 +676,7 @@ integers3 = [
 ]
 ```
 
-Table
------
+## Table
 
 Tables (also known as hash tables or dictionaries) are collections of key/value
 pairs. They are defined by headers, with square brackets on a line by
@@ -760,8 +793,10 @@ name = "Regina Dogman"
 member_since = 1999-08-04
 ```
 
-Dotted keys create and define a table for each key part before the last one,
-provided that such tables were not previously created.
+Dotted keys create and define a table for each key part before the last one. Any
+such table must have all its key/value pairs defined under the current `[table]`
+header, or in the root table if defined before all headers, or in one inline
+table.
 
 ```toml
 fruit.apple.color = "red"
@@ -790,27 +825,35 @@ apple.taste.sweet = true
 smooth = true
 ```
 
-Inline Table
-------------
+## Inline Table
 
 Inline tables provide a more compact syntax for expressing tables. They are
-especially useful for grouped data that can otherwise quickly become verbose.
+especially useful for grouped nested data that can otherwise quickly become
+verbose.
+
 Inline tables are fully defined within curly braces: `{` and `}`. Within the
 braces, zero or more comma-separated key/value pairs may appear. Key/value pairs
 take the same form as key/value pairs in standard tables. All value types are
 allowed, including inline tables.
 
-Inline tables are intended to appear on a single line. A terminating comma (also
-called trailing comma) is not permitted after the last key/value pair in an
-inline table. No newlines are allowed between the curly braces unless they are
-valid within a value. Even so, it is strongly discouraged to break an inline
-table onto multiples lines. If you find yourself gripped with this desire, it
-means you should be using standard tables.
+Inline tables can have multiple key/value pairs on the same line, or they can be
+put on different lines. A terminating comma (also called trailing comma) is
+permitted after the last key/value pair.
 
 ```toml
 name = { first = "Tom", last = "Preston-Werner" }
-point = { x = 1, y = 2 }
+point = {x=1, y=2}
 animal = { type.name = "pug" }
+contact = {
+    personal = {
+        name = "Donald Duck",
+        email = "donald@duckburg.com",
+    },
+    work = {
+        name = "Coin cleaner",
+        email = "donald@ScroogeCorp.com",
+    },
+}
 ```
 
 The inline tables above are identical to the following standard table
@@ -827,6 +870,14 @@ y = 2
 
 [animal]
 type.name = "pug"
+
+[contact.personal]
+name = "Donald Duck"
+email = "donald@duckburg.com"
+
+[contact.work]
+name = "Coin cleaner"
+email = "donald@ScroogeCorp.com"
 ```
 
 Inline tables are fully self-contained and define all keys and sub-tables within
@@ -847,8 +898,7 @@ type.name = "Nail"
 # type = { edible = false }  # INVALID
 ```
 
-Array of Tables
----------------
+## Array of Tables
 
 The last syntax that has not yet been described allows writing arrays of tables.
 These can be expressed by using a header with a name in double brackets. The
@@ -857,13 +907,13 @@ each subsequent instance creates and defines a new table element in that array.
 The tables are inserted into the array in the order encountered.
 
 ```toml
-[[products]]
+[[product]]
 name = "Hammer"
 sku = 738594937
 
-[[products]]  # empty table within the array
+[[product]]  # empty table within the array
 
-[[products]]
+[[product]]
 name = "Nail"
 sku = 284758393
 
@@ -874,9 +924,9 @@ In JSON land, that would give you the following structure.
 
 ```json
 {
-  "products": [
+  "product": [
     { "name": "Hammer", "sku": 738594937 },
-    { },
+    {},
     { "name": "Nail", "sku": 284758393, "color": "gray" }
   ]
 }
@@ -919,16 +969,11 @@ The above TOML maps to the following JSON.
         "color": "red",
         "shape": "round"
       },
-      "varieties": [
-        { "name": "red delicious" },
-        { "name": "granny smith" }
-      ]
+      "varieties": [{ "name": "red delicious" }, { "name": "granny smith" }]
     },
     {
       "name": "banana",
-      "varieties": [
-        { "name": "plantain" }
-      ]
+      "varieties": [{ "name": "plantain" }]
     }
   ]
 }
@@ -992,20 +1037,18 @@ points = [ { x = 1, y = 2, z = 3 },
            { x = 2, y = 4, z = 8 } ]
 ```
 
-Filename Extension
-------------------
+## Filename Extension
 
 TOML files should use the extension `.toml`.
 
-MIME Type
----------
+## MIME Type
 
 When transferring TOML files over the internet, the appropriate MIME type is
 `application/toml`.
 
-ABNF Grammar
-------------
+## ABNF Grammar
 
-A formal description of TOML's syntax is available, as a separate [ABNF file][abnf].
+A formal description of TOML's syntax is available, as a separate [ABNF
+file][abnf].
 
 [abnf]: ./toml.abnf
